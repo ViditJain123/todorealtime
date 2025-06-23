@@ -11,10 +11,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { listId, targetEmail } = await request.json();
+    const { listId, targetEmail, permission = 'Edit' } = await request.json();
 
     if (!listId || !targetEmail) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    if (!['Edit', 'View'].includes(permission)) {
+      return NextResponse.json({ error: 'Invalid permission type' }, { status: 400 });
     }
 
     await connectDB();
@@ -26,7 +30,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if the user is the owner or already has access to the list
-    if (list.userId !== userId && !list.sharedWith.includes(userId)) {
+    const hasAccess = list.userId === userId || 
+      list.sharedWith.some((shared: { userId: string }) => shared.userId === userId);
+    
+    if (!hasAccess) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
@@ -55,15 +62,24 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if the list is already shared with this user
-      if (list.sharedWith.includes(targetUserId)) {
+      const alreadyShared = list.sharedWith.some((shared: { userId: string }) => shared.userId === targetUserId);
+      if (alreadyShared) {
         return NextResponse.json({ 
           error: 'List is already shared with this user' 
         }, { status: 400 });
       }
 
-      // Add the user to the sharedWith array
+      // Add the user to the sharedWith array with permission
       await List.findByIdAndUpdate(listId, {
-        $addToSet: { sharedWith: targetUserId }
+        $addToSet: { 
+          sharedWith: {
+            email: targetEmail,
+            userId: targetUserId,
+            permission: permission,
+            addedAt: new Date()
+          }
+        },
+        $set: { isShared: true }
       });
 
       return NextResponse.json({ 

@@ -43,13 +43,13 @@ export const listAPI = {
   },
 
   // Share a list with another user
-  share: async (listId: string, targetEmail: string): Promise<void> => {
+  share: async (listId: string, targetEmail: string, permission: 'Edit' | 'View' = 'Edit'): Promise<void> => {
     const response = await fetch(`${API_BASE_URL}/share-list`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ listId, targetEmail }),
+      body: JSON.stringify({ listId, targetEmail, permission }),
     });
     if (!response.ok) {
       const error = await response.json();

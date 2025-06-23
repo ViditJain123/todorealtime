@@ -18,7 +18,7 @@ export async function GET() {
     const lists = await List.find({
       $or: [
         { userId },
-        { sharedWith: userId }
+        { 'sharedWith.userId': userId }
       ]
     }).sort({ createdAt: -1 });
     

@@ -1,13 +1,22 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 // Define interfaces for our models
+export interface ISharedUser {
+  email: string;
+  userId: string;
+  permission: 'Edit' | 'View';
+  addedAt: Date;
+}
+
 export interface IList extends Document {
   _id: string;
   name: string;
   createdAt: Date;
   userId: string; // Clerk user ID (owner)
   taskCount: number;
-  sharedWith: string[]; // Array of Clerk user IDs who have access to this list
+  completedTaskCount: number;
+  sharedWith: ISharedUser[]; // Array of users with permissions
+  isShared: boolean;
 }
 
 export interface ITodo extends Document {
@@ -22,6 +31,27 @@ export interface ITodo extends Document {
 }
 
 // List Schema
+const SharedUserSchema = new Schema<ISharedUser>({
+  email: {
+    type: String,
+    required: true
+  },
+  userId: {
+    type: String,
+    required: true,
+    index: true
+  },
+  permission: {
+    type: String,
+    enum: ['Edit', 'View'],
+    default: 'Edit'
+  },
+  addedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 const ListSchema = new Schema<IList>({
   name: {
     type: String,
@@ -42,10 +72,17 @@ const ListSchema = new Schema<IList>({
     type: Number,
     default: 0
   },
+  completedTaskCount: {
+    type: Number,
+    default: 0
+  },
   sharedWith: {
-    type: [String],
-    default: [],
-    index: true
+    type: [SharedUserSchema],
+    default: []
+  },
+  isShared: {
+    type: Boolean,
+    default: false
   }
 });
 

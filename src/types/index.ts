@@ -1,3 +1,9 @@
+export interface SharedUser {
+  email: string;
+  permission: 'Edit' | 'View';
+  addedAt: string;
+}
+
 export interface List {
   _id: string;
   name: string;
@@ -5,7 +11,8 @@ export interface List {
   userId: string;
   taskCount: number;
   completedTaskCount: number;
-  sharedWith: string[];
+  sharedWith: SharedUser[];
+  isShared: boolean;
 }
 
 export interface Todo {
@@ -39,6 +46,7 @@ export interface UpdateTodoRequest {
 export interface ShareListRequest {
   listId: string;
   targetEmail: string;
+  permission: 'Edit' | 'View';
 }
 
 export interface SocketEvents {

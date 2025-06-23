@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth, UserButton } from '@clerk/nextjs';
 import { Todo, List } from '@/types';
@@ -8,6 +8,9 @@ import { useListStore, useTodoStore, useUIStore } from '@/store';
 import { useSocket } from '@/hooks/useSocket';
 import { formatDistanceToNow } from 'date-fns';
 import Image from 'next/image';
+import TodoModal from '@/components/TodoModal';
+import ShareModal from '@/components/ShareModal';
+import { listAPI } from '@/lib/api';
 
 export default function TodosPage() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -17,7 +20,12 @@ export default function TodosPage() {
 
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
-  const [editTaskName, setEditTaskName] = useState('');
+  
+  // Modal states
+  const [showTodoModal, setShowTodoModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [editingTodoData, setEditingTodoData] = useState<Todo | null>(null);
 
   // Zustand stores
   const { lists, updateListTaskCount } = useListStore();
@@ -38,7 +46,6 @@ export default function TodosPage() {
   const { 
     showCreateTodoForm, 
     creatingTodo, 
-    editingTodo,
     setShowCreateTodoForm, 
     setCreatingTodo,
     setEditingTodo,
@@ -59,6 +66,18 @@ export default function TodosPage() {
 
   // Get current list from lists store
   const list = lists.find((l: List) => l._id === listId) || null;
+
+  // Check user permission for this list
+  const userPermission = useMemo(() => {
+    if (!list || !isSignedIn) return null;
+    
+    // If user is owner, they have edit permission
+    // For now, we'll assume all users have edit permission
+    // This should be enhanced to check actual permissions from the API
+    return 'Edit';
+  }, [list, isSignedIn]);
+
+  const canEdit = userPermission === 'Edit';
 
   const fetchData = useCallback(async () => {
     if (!listId) return;
@@ -147,6 +166,64 @@ export default function TodosPage() {
     }
   };
 
+  // Modal handlers
+  const handleOpenCreateModal = () => {
+    setModalMode('create');
+    setEditingTodoData(null);
+    setShowTodoModal(true);
+  };
+
+  const handleOpenEditModal = (todo: Todo) => {
+    setModalMode('edit');
+    setEditingTodoData(todo);
+    setShowTodoModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowTodoModal(false);
+    setEditingTodoData(null);
+  };
+
+  const handleModalSave = async (todoData: {
+    taskName: string;
+    status: 'ToDo' | 'InProgress' | 'Completed';
+    priority: 'High' | 'Medium' | 'Low';
+  }) => {
+    if (modalMode === 'create') {
+      const newTodo = await createTodo(listId, {
+        taskName: todoData.taskName,
+        priority: todoData.priority,
+        status: todoData.status,
+      });
+      
+      // Update list task count
+      updateListTaskCount(listId, 1);
+      
+      // Emit socket event
+      emitTodoAdded(newTodo);
+    } else if (modalMode === 'edit' && editingTodoData) {
+      await updateTodo(listId, editingTodoData._id, {
+        taskName: todoData.taskName,
+        status: todoData.status,
+        priority: todoData.priority,
+        type: todoData.status === 'Completed'
+      });
+      
+      // Emit socket event
+      const updatedTodo: Todo = { 
+        ...editingTodoData, 
+        taskName: todoData.taskName,
+        status: todoData.status,
+        priority: todoData.priority,
+        type: todoData.status === 'Completed'
+      };
+      emitTodoUpdated(updatedTodo);
+      
+      // Clear editing state
+      setEditingTodo(null);
+    }
+  };
+
   const handleToggleComplete = async (todo: Todo) => {
     try {
       await toggleComplete(listId, todo);
@@ -160,57 +237,6 @@ export default function TodosPage() {
       emitTodoUpdated(updatedTodo);
     } catch (error) {
       console.error('Error toggling completion:', error);
-    }
-  };
-
-  const handleStatusChange = async (todo: Todo, newStatus: 'ToDo' | 'InProgress' | 'Completed') => {
-    try {
-      await updateTodo(listId, todo._id, {
-        status: newStatus,
-        type: newStatus === 'Completed'
-      });
-      
-      // Emit socket event
-      const updatedTodo: Todo = { ...todo, status: newStatus, type: newStatus === 'Completed' };
-      emitTodoUpdated(updatedTodo);
-    } catch (error) {
-      console.error('Error updating todo status:', error);
-    }
-  };
-
-  const handlePriorityChange = async (todo: Todo, newPriority: 'High' | 'Medium' | 'Low') => {
-    try {
-      await updateTodo(listId, todo._id, {
-        priority: newPriority
-      });
-      
-      // Emit socket event
-      const updatedTodo: Todo = { ...todo, priority: newPriority };
-      emitTodoUpdated(updatedTodo);
-    } catch (error) {
-      console.error('Error updating todo priority:', error);
-    }
-  };
-
-  const handleEditTodo = async (todoId: string, newTaskName: string) => {
-    if (!newTaskName.trim()) return;
-
-    try {
-      await updateTodo(listId, todoId, {
-        taskName: newTaskName.trim()
-      });
-      
-      // Find the todo and emit socket event
-      const todo = todos.find(t => t._id === todoId);
-      if (todo) {
-        const updatedTodo: Todo = { ...todo, taskName: newTaskName.trim() };
-        emitTodoUpdated(updatedTodo);
-      }
-      
-      setEditingTodo(null);
-      setEditTaskName('');
-    } catch (error) {
-      console.error('Error editing todo:', error);
     }
   };
 
@@ -230,6 +256,20 @@ export default function TodosPage() {
     } catch (error) {
       console.error('Error deleting todo:', error);
     }
+  };
+
+  // Share handlers
+  const handleShareClick = () => {
+    setShowShareModal(true);
+  };
+
+  const handleCloseShareModal = () => {
+    setShowShareModal(false);
+  };
+
+  const handleShareList = async (email: string, permission: 'Edit' | 'View') => {
+    if (!list) return;
+    await listAPI.share(list._id, email, permission);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -358,19 +398,48 @@ export default function TodosPage() {
         {/* Page Header */}
         <div className="mb-8">
           <div>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="text-[#D52121] hover:text-[#B91C1C] mb-10 flex items-center font-medium transition-colors"
-            >
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
-            </button>
-            <h1 className="text-xl font-bold text-gray-900 mb-2">{list.name}</h1>
-            <p className="text-gray-600 text-sm">
-              {list.taskCount} {list.taskCount === 1 ? 'task' : 'tasks'} • Created {formatDistanceToNow(new Date(list.createdAt), { addSuffix: true })}
-            </p>
+            <div className="flex items-center justify-between mb-10">
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="text-gray-500 hover:text-gray-700 flex items-center font-medium transition-colors"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
+              </button>
+              
+              <div className="flex items-center space-x-4">
+                <span className="text-gray-400">Not Shared</span>
+                <button
+                  onClick={handleShareClick}
+                  className="bg-[#D52121] hover:bg-[#B91C1C] text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Share
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 mb-2">{list.name}</h1>
+                <p className="text-gray-600 text-sm">
+                  {list.taskCount} {list.taskCount === 1 ? 'task' : 'tasks'} • Created {formatDistanceToNow(new Date(list.createdAt), { addSuffix: true })}
+                </p>
+              </div>
+              
+              <button
+                onClick={handleOpenCreateModal}
+                disabled={!canEdit}
+                className={`font-medium flex items-center transition-colors ${
+                  canEdit 
+                    ? 'text-[#D52121] hover:text-[#B91C1C]' 
+                    : 'text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                + Add Task
+              </button>
+            </div>
           </div>
         </div>
 
@@ -429,149 +498,163 @@ export default function TodosPage() {
           </div>
         )}
 
-        {/* Todos List */}
-        {todos.length === 0 ? (
-          <div className="text-center">
-            <div className="max-w-[920px] h-[557px] mx-auto bg-[#FAFAFA] rounded-lg p-8 flex flex-col items-center justify-center">
-              <div className="mb-6">
-                <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks yet</h3>
-              <p className="text-gray-600 mb-6">Add your first task to get started with this list.</p>
-              <button
-                onClick={() => setShowCreateTodoForm(true)}
-                className="bg-[#D52121] hover:bg-[#B91C1C] text-white px-4 py-2 rounded-[8px] font-medium transition-colors text-lg"
-              >
-                Add Your First Task
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {todos.map((todo: Todo) => (
-              <div
-                key={todo._id}
-                className={`bg-[#FAFAFA] rounded-lg shadow-sm hover:shadow-md transition-shadow p-6 max-w-[920px] ${
-                  todo.type ? 'opacity-75' : ''
-                }`}
-              >
-                <div className="flex items-start space-x-4">
-                  {/* Completion Radio Button */}
-                  <div className="flex-shrink-0 mt-1">
-                    <input
-                      type="radio"
-                      checked={todo.type}
-                      onChange={() => handleToggleComplete(todo)}
-                      className="w-4 h-4 text-[#D52121] border-gray-300 focus:ring-[#D52121]"
-                    />
-                  </div>
+        {/* Todo Modal */}
+        <TodoModal
+          isOpen={showTodoModal}
+          onClose={handleCloseModal}
+          onSave={handleModalSave}
+          todo={editingTodoData}
+          mode={modalMode}
+          loading={creatingTodo}
+        />
 
-                  <div className="flex-grow">
-                    {/* Task Name */}
-                    {editingTodo === todo._id ? (
-                      <div className="flex items-center space-x-2 mb-3">
-                        <input
-                          type="text"
-                          value={editTaskName}
-                          onChange={(e) => setEditTaskName(e.target.value)}
-                          className="flex-grow border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#D52121] focus:border-[#D52121]"
-                          autoFocus
-                        />
-                        <button
-                          onClick={() => handleEditTodo(todo._id, editTaskName)}
-                          className="bg-[#D52121] hover:bg-[#B91C1C] text-white px-3 py-1 rounded text-sm font-medium"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingTodo(null);
-                            setEditTaskName('');
-                          }}
-                          className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors"
-                        >
-                          <Image
-                            src="/dashboard/delete.svg"
-                            alt="Cancel"
-                            width={16}
-                            height={16}
-                          />
-                        </button>
-                      </div>
-                    ) : (
-                      <h3
-                        className={`text-lg font-medium mb-3 ${
+        {/* Share Modal */}
+        <ShareModal
+          list={list}
+          isOpen={showShareModal}
+          onClose={handleCloseShareModal}
+          onShare={handleShareList}
+        />
+
+        {/* Todos Table */}
+        <div className="bg-white rounded-lg overflow-hidden max-w-[920px]">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-white border-b border-gray-200">
+                <th className="text-left py-3 px-4 font-medium text-gray-700 w-12 border-r border-gray-200">Type</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700 border-r border-gray-200">Task Name</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700 w-32 border-r border-gray-200">Status</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700 w-48 border-r border-gray-200">Created on</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700 w-32 border-r border-gray-200">Priority</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700 w-24">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {todos.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 px-4 text-center text-gray-500">
+                    No tasks yet. Click &quot;Add Task&quot; to create your first task.
+                  </td>
+                </tr>
+              ) : (
+                todos.map((todo: Todo) => (
+                  <tr
+                    key={todo._id}
+                    className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                      todo.type ? 'opacity-75' : ''
+                    }`}
+                  >
+                    {/* Type Column - Checkbox */}
+                    <td className="py-4 px-4 border-r border-gray-100">
+                      <input
+                        type="checkbox"
+                        checked={todo.type}
+                        onChange={() => canEdit && handleToggleComplete(todo)}
+                        disabled={!canEdit}
+                        className={`w-4 h-4 border-gray-300 rounded focus:ring-2 ${
+                          canEdit 
+                            ? 'text-[#D52121] focus:ring-[#D52121] cursor-pointer' 
+                            : 'text-gray-300 cursor-not-allowed'
+                        }`}
+                      />
+                    </td>
+
+                    {/* Task Name Column */}
+                    <td className="py-4 px-4 border-r border-gray-100">
+                      <span
+                        className={`font-medium ${
                           todo.type ? 'line-through text-gray-500' : 'text-gray-900'
                         }`}
                       >
                         {todo.taskName}
-                      </h3>
-                    )}
+                      </span>
+                    </td>
 
-                    {/* Status and Priority */}
-                    <div className="flex items-center space-x-4 mb-3">
-                      <select
-                        value={todo.status}
-                        onChange={(e) => handleStatusChange(todo, e.target.value as 'ToDo' | 'InProgress' | 'Completed')}
-                        className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(todo.status)}`}
-                      >
-                        <option value="ToDo">To Do</option>
-                        <option value="InProgress">In Progress</option>
-                        <option value="Completed">Completed</option>
-                      </select>
+                    {/* Status Column */}
+                    <td className="py-4 px-4 border-r border-gray-100">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(todo.status)}`}>
+                        {todo.status === 'ToDo' ? 'To Do' : todo.status === 'InProgress' ? 'In Progress' : 'Completed'}
+                      </span>
+                    </td>
 
-                      <select
-                        value={todo.priority}
-                        onChange={(e) => handlePriorityChange(todo, e.target.value as 'High' | 'Medium' | 'Low')}
-                        className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(todo.priority)}`}
-                      >
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
-                      </select>
-                    </div>
+                    {/* Created on Column */}
+                    <td className="py-4 px-4 text-sm text-gray-600 border-r border-gray-100">
+                      {new Date(todo.createdAt).toLocaleString('en-GB', {
+                        hour12: false,
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </td>
 
-                    {/* Created At */}
-                    <p className="text-sm text-gray-500">
-                      Created {formatDistanceToNow(new Date(todo.createdAt), { addSuffix: true })}
-                    </p>
-                  </div>
+                    {/* Priority Column */}
+                    <td className="py-4 px-4 border-r border-gray-100">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(todo.priority)}`}>
+                        {todo.priority}
+                      </span>
+                    </td>
 
-                  {/* Actions */}
-                  <div className="flex-shrink-0 flex items-center space-x-2">
-                    <button
-                      onClick={() => {
-                        setEditingTodo(todo._id);
-                        setEditTaskName(todo.taskName);
-                      }}
-                      className="text-gray-400 hover:text-blue-500 p-2 rounded transition-colors"
-                      title="Edit task"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDeleteTodo(todo._id)}
-                      className="text-gray-400 hover:text-red-500 p-2 rounded transition-colors"
-                      title="Delete task"
-                    >
-                      <Image
-                        src="/dashboard/delete.svg"
-                        alt="Delete"
-                        width={20}
-                        height={20}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                    {/* Actions Column */}
+                    <td className="py-4 px-4">
+                      {canEdit ? (
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => handleOpenEditModal(todo)}
+                            className="text-gray-400 hover:text-blue-500 p-1 rounded transition-colors"
+                            title="Edit task"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTodo(todo._id)}
+                            className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors"
+                            title="Delete task"
+                          >
+                            <Image
+                              src="/dashboard/delete.svg"
+                              alt="Delete"
+                              width={16}
+                              height={16}
+                            />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-1">
+                          <span className="text-gray-300 text-xs">View Only</span>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* Todo Modal */}
+      <TodoModal
+        isOpen={showTodoModal}
+        onClose={handleCloseModal}
+        onSave={handleModalSave}
+        todo={editingTodoData}
+        mode={modalMode}
+        loading={creatingTodo}
+      />
+
+      {/* Share Modal */}
+      {list && (
+        <ShareModal
+          list={list}
+          isOpen={showShareModal}
+          onClose={handleCloseShareModal}
+          onShare={handleShareList}
+        />
+      )}
     </div>
   );
 }

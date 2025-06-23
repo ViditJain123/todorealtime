@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth, UserButton } from '@clerk/nextjs';
 import { List } from '@/types';
 import { useListStore, useUIStore } from '@/store';
-import { listAPI } from '@/lib/api';
 import { format } from 'date-fns';
-import ShareModal from '@/components/ShareModal';
 import DeleteListModal from '@/components/DeleteListModal';
 import CircularProgress from '@/components/CircularProgress';
 import Image from 'next/image';
@@ -16,9 +14,7 @@ export default function ListsPage() {
   const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
   const [newListName, setNewListName] = useState('');
-  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedList, setSelectedList] = useState<List | null>(null);
   const [listToDelete, setListToDelete] = useState<List | null>(null);
   
   // Zustand stores
@@ -99,22 +95,6 @@ export default function ListsPage() {
 
   const handleListClick = (listId: string) => {
     router.push(`/lists/${listId}`);
-  };
-
-  const handleShareClick = (list: List, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedList(list);
-    setShareModalOpen(true);
-  };
-
-  const handleShareList = async (email: string) => {
-    if (!selectedList) return;
-    await listAPI.share(selectedList._id, email);
-  };
-
-  const handleCloseShareModal = () => {
-    setShareModalOpen(false);
-    setSelectedList(null);
   };
 
   if (!isLoaded || loading) {
@@ -260,15 +240,6 @@ export default function ListsPage() {
                   {/* Actions */}
                   <div className="flex items-center space-x-2 flex-shrink-0">
                     <button
-                      onClick={(e) => handleShareClick(list, e)}
-                      className="text-gray-400 hover:text-blue-500 p-2 rounded transition-colors"
-                      title="Share list"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-                      </svg>
-                    </button>
-                    <button
                       onClick={(e) => handleDeleteList(list, e)}
                       className="text-gray-400 hover:text-red-500 p-2 rounded transition-colors"
                       title="Delete list"
@@ -293,16 +264,6 @@ export default function ListsPage() {
               + Add another List
             </button>
           </div>
-        )}
-
-        {/* Share Modal */}
-        {selectedList && (
-          <ShareModal
-            list={selectedList}
-            isOpen={shareModalOpen}
-            onClose={handleCloseShareModal}
-            onShare={handleShareList}
-          />
         )}
 
         {/* Delete List Modal */}
