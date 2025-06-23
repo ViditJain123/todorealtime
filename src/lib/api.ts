@@ -56,6 +56,21 @@ export const listAPI = {
       throw new Error(error.error || 'Failed to share list');
     }
   },
+
+  // Update permissions for shared users
+  updatePermissions: async (listId: string, updates: { email: string; permission: 'Edit' | 'View' }[]): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/update-permissions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ listId, updates }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update permissions');
+    }
+  },
 };
 
 // Todo API functions

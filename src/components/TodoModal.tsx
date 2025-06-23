@@ -78,16 +78,16 @@ export default function TodoModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-100">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-[#D52121]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-50 rounded-xl flex items-center justify-center">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-[#D52121]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-gray-900">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">
               {mode === 'create' ? 'Task Details' : 'Edit Task'}
             </h2>
           </div>
@@ -95,14 +95,14 @@ export default function TodoModal({
             onClick={handleCancel}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Task Name */}
           <div>
             <input
@@ -110,7 +110,7 @@ export default function TodoModal({
               value={taskName}
               onChange={(e) => setTaskName(e.target.value)}
               placeholder="Task Name"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D52121] focus:border-[#D52121] text-gray-900 placeholder-gray-400"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D52121] focus:border-[#D52121] text-gray-900 placeholder-gray-400"
               autoFocus
               disabled={loading}
               required
@@ -118,7 +118,7 @@ export default function TodoModal({
           </div>
 
           {/* Status and Priority Row */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Status */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -128,7 +128,7 @@ export default function TodoModal({
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as 'ToDo' | 'InProgress' | 'Completed')}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D52121] focus:border-[#D52121] text-gray-900 appearance-none bg-white"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D52121] focus:border-[#D52121] text-gray-900 appearance-none bg-white"
                   disabled={loading}
                 >
                   <option value="ToDo">To Do</option>
@@ -152,7 +152,7 @@ export default function TodoModal({
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as 'High' | 'Medium' | 'Low')}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D52121] focus:border-[#D52121] text-gray-900 appearance-none bg-white"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D52121] focus:border-[#D52121] text-gray-900 appearance-none bg-white"
                   disabled={loading}
                 >
                   <option value="High">High</option>
@@ -169,11 +169,11 @@ export default function TodoModal({
           </div>
 
           {/* Buttons */}
-          <div className="flex items-center justify-end space-x-3 pt-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-4">
             <button
               type="button"
               onClick={handleCancel}
-              className="px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+              className="px-4 sm:px-6 py-2 sm:py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors font-medium order-2 sm:order-1"
               disabled={loading}
             >
               Cancel
@@ -181,7 +181,7 @@ export default function TodoModal({
             <button
               type="submit"
               disabled={loading || !taskName.trim()}
-              className="bg-[#D52121] hover:bg-[#B91C1C] disabled:bg-gray-400 text-white px-6 py-3 rounded-xl font-medium transition-colors"
+              className="bg-[#D52121] hover:bg-[#B91C1C] disabled:bg-gray-400 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-colors order-1 sm:order-2"
             >
               {loading ? (mode === 'create' ? 'Creating...' : 'Saving...') : 'Save'}
             </button>

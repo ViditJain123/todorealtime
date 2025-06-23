@@ -10,6 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 import Image from 'next/image';
 import TodoModal from '@/components/TodoModal';
 import ShareModal from '@/components/ShareModal';
+import SharedUserAvatars from '@/components/SharedUserAvatars';
 import { listAPI } from '@/lib/api';
 
 export default function TodosPage() {
@@ -28,7 +29,7 @@ export default function TodosPage() {
   const [editingTodoData, setEditingTodoData] = useState<Todo | null>(null);
 
   // Zustand stores
-  const { lists, updateListTaskCount } = useListStore();
+  const { lists, updateListTaskCount, fetchLists } = useListStore();
   const { 
     todos, 
     loading, 
@@ -272,6 +273,17 @@ export default function TodosPage() {
     await listAPI.share(list._id, email, permission);
   };
 
+  const handleUpdatePermissions = async (updates: { email: string; permission: 'Edit' | 'View' }[]) => {
+    if (!list) return;
+    await listAPI.updatePermissions(list._id, updates);
+  };
+
+  const handleRefetchList = async () => {
+    if (!list) return;
+    // Refetch the current list to get updated shared users
+    await fetchLists();
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'High': return 'text-red-600 bg-red-50 border-red-200';
@@ -296,14 +308,14 @@ export default function TodosPage() {
         {/* Header */}
         <header className="bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
+            <div className="flex justify-between items-center h-14 sm:h-16">
               <div className="flex items-center">
                 <Image
                   src="/logo.png"
                   alt="Todo Logo"
                   width={120}
                   height={48}
-                  className="w-auto h-12"
+                  className="w-auto h-8 sm:h-12"
                   priority
                 />
               </div>
@@ -314,12 +326,12 @@ export default function TodosPage() {
           </div>
         </header>
         
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
           <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="h-6 sm:h-8 bg-gray-200 rounded w-1/2 sm:w-1/3 mb-4"></div>
             <div className="space-y-4">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-20 bg-gray-200 rounded max-w-[920px]"></div>
+                <div key={i} className="h-16 sm:h-20 bg-gray-200 rounded w-full max-w-[920px]"></div>
               ))}
             </div>
           </div>
@@ -334,14 +346,14 @@ export default function TodosPage() {
         {/* Header */}
         <header className="bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
+            <div className="flex justify-between items-center h-14 sm:h-16">
               <div className="flex items-center">
                 <Image
                   src="/logo.png"
                   alt="Todo Logo"
                   width={120}
                   height={48}
-                  className="w-auto h-12"
+                  className="w-auto h-8 sm:h-12"
                   priority
                 />
               </div>
@@ -352,9 +364,9 @@ export default function TodosPage() {
           </div>
         </header>
         
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
           <div className="text-center">
-            <h1 className="text-xl font-bold text-gray-900 mb-2">List not found</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">List not found</h1>
             <button
               onClick={() => router.push('/dashboard')}
               className="mt-4 bg-[#D52121] hover:bg-[#B91C1C] text-white px-4 py-2 rounded-[8px] font-medium transition-colors"
@@ -372,7 +384,7 @@ export default function TodosPage() {
       {/* Header */}
       <header className="bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center h-14 sm:h-16">
             {/* Logo */}
             <div className="flex items-center">
               <Image
@@ -380,7 +392,7 @@ export default function TodosPage() {
                 alt="Todo Logo"
                 width={120}
                 height={48}
-                className="w-auto h-12"
+                className="w-auto h-8 sm:h-12"
                 priority
               />
             </div>
@@ -394,14 +406,13 @@ export default function TodosPage() {
       </header>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">{/* Page Header */}
+        <div className="mb-6 sm:mb-8">
           <div>
-            <div className="flex items-center justify-between mb-10">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-10 space-y-4 sm:space-y-0">
               <button
                 onClick={() => router.push('/dashboard')}
-                className="text-gray-500 hover:text-gray-700 flex items-center font-medium transition-colors"
+                className="text-gray-500 hover:text-gray-700 flex items-center font-medium transition-colors self-start"
               >
                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -409,43 +420,42 @@ export default function TodosPage() {
                 Back
               </button>
               
-              <div className="flex items-center space-x-4">
-                <span className="text-gray-400">Not Shared</span>
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                {list.sharedWith && list.sharedWith.length > 0 ? (
+                  <div className="flex items-center space-x-2">
+                    <SharedUserAvatars sharedWith={list.sharedWith} maxAvatars={2} size="sm" />
+                    <span className="text-gray-500 text-xs sm:text-sm">
+                      {list.sharedWith.length === 1 
+                        ? '1 collaborator' 
+                        : `${list.sharedWith.length} collaborators`}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-gray-400 text-xs sm:text-sm">Not Shared</span>
+                )}
                 <button
                   onClick={handleShareClick}
-                  className="bg-[#D52121] hover:bg-[#B91C1C] text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  className="bg-[#D52121] hover:bg-[#B91C1C] text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-sm sm:text-base"
                 >
                   Share
                 </button>
               </div>
             </div>
             
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
               <div>
-                <h1 className="text-xl font-bold text-gray-900 mb-2">{list.name}</h1>
-                <p className="text-gray-600 text-sm">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">{list.name}</h1>
+                <p className="text-gray-600 text-xs sm:text-sm">
                   {list.taskCount} {list.taskCount === 1 ? 'task' : 'tasks'} • Created {formatDistanceToNow(new Date(list.createdAt), { addSuffix: true })}
                 </p>
               </div>
-              
-              <button
-                onClick={handleOpenCreateModal}
-                disabled={!canEdit}
-                className={`font-medium flex items-center transition-colors ${
-                  canEdit 
-                    ? 'text-[#D52121] hover:text-[#B91C1C]' 
-                    : 'text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                + Add Task
-              </button>
             </div>
           </div>
         </div>
 
         {/* Create Todo Form */}
         {showCreateTodoForm && (
-          <div className="mb-6 bg-[#FAFAFA] rounded-lg shadow p-6 max-w-[920px]">
+          <div className="mb-6 bg-[#FAFAFA] rounded-lg shadow p-4 sm:p-6 w-full max-w-[920px]">
             <form onSubmit={handleCreateTodo}>
               <div className="space-y-4">
                 <input
@@ -457,41 +467,43 @@ export default function TodosPage() {
                   autoFocus
                   disabled={creatingTodo}
                 />
-                <div className="flex items-center space-x-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
                   <select
                     value={newTaskPriority}
                     onChange={(e) => setNewTaskPriority(e.target.value as 'High' | 'Medium' | 'Low')}
-                    className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#D52121] focus:border-[#D52121]"
+                    className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#D52121] focus:border-[#D52121] flex-1 sm:flex-none"
                     disabled={creatingTodo}
                   >
                     <option value="High">High Priority</option>
                     <option value="Medium">Medium Priority</option>
                     <option value="Low">Low Priority</option>
                   </select>
-                  <button
-                    type="submit"
-                    disabled={creatingTodo || !newTaskName.trim()}
-                    className="bg-[#D52121] hover:bg-[#B91C1C] disabled:bg-gray-400 text-white px-4 py-2 rounded-[8px] font-medium transition-colors"
-                  >
-                    {creatingTodo ? 'Creating...' : 'Create Task'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreateTodoForm(false);
-                      setNewTaskName('');
-                      setNewTaskPriority('Medium');
-                    }}
-                    className="text-gray-400 hover:text-red-500 p-2 rounded transition-colors"
-                    title="Cancel"
-                  >
-                    <Image
-                      src="/dashboard/delete.svg"
-                      alt="Cancel"
-                      width={20}
-                      height={20}
-                    />
-                  </button>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="submit"
+                      disabled={creatingTodo || !newTaskName.trim()}
+                      className="bg-[#D52121] hover:bg-[#B91C1C] disabled:bg-gray-400 text-white px-4 py-2 rounded-[8px] font-medium transition-colors flex-1 sm:flex-none"
+                    >
+                      {creatingTodo ? 'Creating...' : 'Create Task'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateTodoForm(false);
+                        setNewTaskName('');
+                        setNewTaskPriority('Medium');
+                      }}
+                      className="text-gray-400 hover:text-red-500 p-2 rounded transition-colors"
+                      title="Cancel"
+                    >
+                      <Image
+                        src="/dashboard/delete.svg"
+                        alt="Cancel"
+                        width={20}
+                        height={20}
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
             </form>
@@ -514,90 +526,66 @@ export default function TodosPage() {
           isOpen={showShareModal}
           onClose={handleCloseShareModal}
           onShare={handleShareList}
+          onUpdatePermissions={handleUpdatePermissions}
+          onRefetchList={handleRefetchList}
         />
 
         {/* Todos Table */}
-        <div className="bg-white rounded-lg overflow-hidden max-w-[920px]">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-white border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-medium text-gray-700 w-12 border-r border-gray-200">Type</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700 border-r border-gray-200">Task Name</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700 w-32 border-r border-gray-200">Status</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700 w-48 border-r border-gray-200">Created on</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700 w-32 border-r border-gray-200">Priority</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700 w-24">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {todos.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 px-4 text-center text-gray-500">
-                    No tasks yet. Click &quot;Add Task&quot; to create your first task.
-                  </td>
-                </tr>
-              ) : (
-                todos.map((todo: Todo) => (
-                  <tr
+        <div className="bg-white rounded-lg overflow-hidden w-full max-w-[920px]">
+          {/* Mobile Card View */}
+          <div className="block sm:hidden">
+            {todos.length === 0 ? (
+              <div className="py-8 px-4 text-center text-gray-500">
+                No tasks yet. Click &quot;Add Task&quot; to create your first task.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {todos.map((todo: Todo) => (
+                  <div
                     key={todo._id}
-                    className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                    className={`bg-gray-50 rounded-lg p-4 border ${
                       todo.type ? 'opacity-75' : ''
                     }`}
                   >
-                    {/* Type Column - Checkbox */}
-                    <td className="py-4 px-4 border-r border-gray-100">
+                    {/* Task Name and Checkbox */}
+                    <div className="flex items-start space-x-3 mb-3">
                       <input
                         type="checkbox"
                         checked={todo.type}
                         onChange={() => canEdit && handleToggleComplete(todo)}
                         disabled={!canEdit}
-                        className={`w-4 h-4 border-gray-300 rounded focus:ring-2 ${
+                        className={`w-4 h-4 border-gray-300 rounded focus:ring-2 mt-1 ${
                           canEdit 
                             ? 'text-[#D52121] focus:ring-[#D52121] cursor-pointer' 
                             : 'text-gray-300 cursor-not-allowed'
                         }`}
                       />
-                    </td>
+                      <div className="flex-1 min-w-0">
+                        <span
+                          className={`font-medium text-sm ${
+                            todo.type ? 'line-through text-gray-500' : 'text-gray-900'
+                          }`}
+                        >
+                          {todo.taskName}
+                        </span>
+                      </div>
+                    </div>
 
-                    {/* Task Name Column */}
-                    <td className="py-4 px-4 border-r border-gray-100">
-                      <span
-                        className={`font-medium ${
-                          todo.type ? 'line-through text-gray-500' : 'text-gray-900'
-                        }`}
-                      >
-                        {todo.taskName}
-                      </span>
-                    </td>
-
-                    {/* Status Column */}
-                    <td className="py-4 px-4 border-r border-gray-100">
+                    {/* Status and Priority */}
+                    <div className="flex items-center space-x-2 mb-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(todo.status)}`}>
                         {todo.status === 'ToDo' ? 'To Do' : todo.status === 'InProgress' ? 'In Progress' : 'Completed'}
                       </span>
-                    </td>
-
-                    {/* Created on Column */}
-                    <td className="py-4 px-4 text-sm text-gray-600 border-r border-gray-100">
-                      {new Date(todo.createdAt).toLocaleString('en-GB', {
-                        hour12: false,
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </td>
-
-                    {/* Priority Column */}
-                    <td className="py-4 px-4 border-r border-gray-100">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(todo.priority)}`}>
                         {todo.priority}
                       </span>
-                    </td>
+                    </div>
 
-                    {/* Actions Column */}
-                    <td className="py-4 px-4">
+                    {/* Created Date and Actions */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-600">
+                        {new Date(todo.createdAt).toLocaleDateString('en-GB')}
+                      </span>
                       {canEdit ? (
                         <div className="flex items-center space-x-1">
                           <button
@@ -617,23 +605,156 @@ export default function TodosPage() {
                             <Image
                               src="/dashboard/delete.svg"
                               alt="Delete"
-                              width={16}
-                              height={16}
+                              width={14}
+                              height={14}
                             />
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center space-x-1">
-                          <span className="text-gray-300 text-xs">View Only</span>
-                        </div>
+                        <span className="text-gray-300 text-xs">View Only</span>
                       )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-white border-b border-gray-200">
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 w-12 border-r border-gray-200">Type</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 border-r border-gray-200">Task Name</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 w-32 border-r border-gray-200">Status</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 w-48 border-r border-gray-200">Created on</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 w-32 border-r border-gray-200">Priority</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 w-24">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {todos.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 px-4 text-center text-gray-500">
+                      No tasks yet. Click &quot;Add Task&quot; to create your first task.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  todos.map((todo: Todo) => (
+                    <tr
+                      key={todo._id}
+                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                        todo.type ? 'opacity-75' : ''
+                      }`}
+                    >
+                      {/* Type Column - Checkbox */}
+                      <td className="py-4 px-4 border-r border-gray-100">
+                        <input
+                          type="checkbox"
+                          checked={todo.type}
+                          onChange={() => canEdit && handleToggleComplete(todo)}
+                          disabled={!canEdit}
+                          className={`w-4 h-4 border-gray-300 rounded focus:ring-2 ${
+                            canEdit 
+                              ? 'text-[#D52121] focus:ring-[#D52121] cursor-pointer' 
+                              : 'text-gray-300 cursor-not-allowed'
+                          }`}
+                        />
+                      </td>
+
+                      {/* Task Name Column */}
+                      <td className="py-4 px-4 border-r border-gray-100">
+                        <span
+                          className={`font-medium ${
+                            todo.type ? 'line-through text-gray-500' : 'text-gray-900'
+                          }`}
+                        >
+                          {todo.taskName}
+                        </span>
+                      </td>
+
+                      {/* Status Column */}
+                      <td className="py-4 px-4 border-r border-gray-100">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(todo.status)}`}>
+                          {todo.status === 'ToDo' ? 'To Do' : todo.status === 'InProgress' ? 'In Progress' : 'Completed'}
+                        </span>
+                      </td>
+
+                      {/* Created on Column */}
+                      <td className="py-4 px-4 text-sm text-gray-600 border-r border-gray-100">
+                        {new Date(todo.createdAt).toLocaleString('en-GB', {
+                          hour12: false,
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
+
+                      {/* Priority Column */}
+                      <td className="py-4 px-4 border-r border-gray-100">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(todo.priority)}`}>
+                          {todo.priority}
+                        </span>
+                      </td>
+
+                      {/* Actions Column */}
+                      <td className="py-4 px-4">
+                        {canEdit ? (
+                          <div className="flex items-center space-x-1">
+                            <button
+                              onClick={() => handleOpenEditModal(todo)}
+                              className="text-gray-400 hover:text-blue-500 p-1 rounded transition-colors"
+                              title="Edit task"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTodo(todo._id)}
+                              className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors"
+                              title="Delete task"
+                            >
+                              <Image
+                                src="/dashboard/delete.svg"
+                                alt="Delete"
+                                width={16}
+                                height={16}
+                              />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-1">
+                            <span className="text-gray-300 text-xs">View Only</span>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        {/* Add Task Button */}
+        {canEdit && (
+          <div className="mt-6 w-full max-w-[920px] flex justify-start">
+            <button
+              onClick={handleOpenCreateModal}
+              className={`font-medium flex items-center transition-colors text-sm sm:text-base ${
+                canEdit 
+                  ? 'text-[#D52121] hover:text-[#B91C1C]' 
+                  : 'text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              + Add Task
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Todo Modal */}
@@ -653,6 +774,8 @@ export default function TodosPage() {
           isOpen={showShareModal}
           onClose={handleCloseShareModal}
           onShare={handleShareList}
+          onUpdatePermissions={handleUpdatePermissions}
+          onRefetchList={handleRefetchList}
         />
       )}
     </div>

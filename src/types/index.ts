@@ -2,6 +2,8 @@ export interface SharedUser {
   email: string;
   permission: 'Edit' | 'View';
   addedAt: string;
+  username?: string;
+  fullName?: string;
 }
 
 export interface List {

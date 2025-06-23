@@ -76,7 +76,9 @@ export async function POST(request: NextRequest) {
             email: targetEmail,
             userId: targetUserId,
             permission: permission,
-            addedAt: new Date()
+            addedAt: new Date(),
+            username: targetUser.username || null,
+            fullName: targetUser.fullName || null
           }
         },
         $set: { isShared: true }

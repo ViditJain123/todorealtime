@@ -8,6 +8,7 @@ import { useListStore, useUIStore } from '@/store';
 import { format } from 'date-fns';
 import DeleteListModal from '@/components/DeleteListModal';
 import CircularProgress from '@/components/CircularProgress';
+import SharedUserAvatars from '@/components/SharedUserAvatars';
 import Image from 'next/image';
 
 export default function ListsPage() {
@@ -99,12 +100,12 @@ export default function ListsPage() {
 
   if (!isLoaded || loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="h-6 sm:h-8 bg-gray-200 rounded w-1/2 sm:w-1/3 mb-4"></div>
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-20 bg-gray-200 rounded"></div>
+              <div key={i} className="h-16 sm:h-20 bg-gray-200 rounded"></div>
             ))}
           </div>
         </div>
@@ -117,7 +118,7 @@ export default function ListsPage() {
       {/* Header */}
       <header className="bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center h-14 sm:h-16">
             {/* Logo */}
             <div className="flex items-center">
               <Image
@@ -125,7 +126,7 @@ export default function ListsPage() {
                 alt="Todo Logo"
                 width={120}
                 height={48}
-                className="w-auto h-12"
+                className="w-auto h-8 sm:h-12"
                 priority
               />
             </div>
@@ -139,15 +140,15 @@ export default function ListsPage() {
       </header>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Your To Do Lists</h1>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Your To Do Lists</h1>
         </div>
 
         {/* Create List Form */}
         {showCreateListForm && (
-          <div className="mb-6 bg-[#FAFAFA] rounded-lg shadow p-6 max-w-[920px] h-[94px] flex items-center">
-            <form onSubmit={handleCreateList} className="flex items-center space-x-4 flex-1">
+          <div className="mb-6 bg-[#FAFAFA] rounded-lg shadow p-4 sm:p-6 w-full max-w-[920px] min-h-[94px] flex items-center">
+            <form onSubmit={handleCreateList} className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 flex-1">
               <input
                 type="text"
                 value={newListName}
@@ -163,7 +164,7 @@ export default function ListsPage() {
                   setShowCreateListForm(false);
                   setNewListName('');
                 }}
-                className="text-gray-400 hover:text-red-500 p-2 rounded transition-colors flex-shrink-0"
+                className="text-gray-400 hover:text-red-500 p-2 rounded transition-colors flex-shrink-0 self-center sm:self-auto"
                 title="Cancel"
               >
                 <Image
@@ -180,20 +181,20 @@ export default function ListsPage() {
         {/* Lists */}
         {lists.length === 0 ? (
           <div className="text-center">
-            <div className="max-w-[920px] h-[557px] mx-auto bg-[#FAFAFA] rounded-lg p-8 flex flex-col items-center justify-center">
-              <div className="mb-6">
+            <div className="w-full max-w-[920px] h-auto sm:h-[557px] mx-auto bg-[#FAFAFA] rounded-lg p-6 sm:p-8 flex flex-col items-center justify-center">
+              <div className="mb-4 sm:mb-6">
                 <Image
                   src="/dashboard/ftue.png"
                   alt="No lists illustration"
                   width={200}
                   height={150}
-                  className="mx-auto"
+                  className="mx-auto w-auto h-32 sm:h-auto"
                 />
               </div>
-              <p className="text-gray-600 mb-6">Create your first list and become more productive</p>
+              <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Create your first list and become more productive</p>
               <button
                 onClick={() => setShowCreateListForm(true)}
-                className="bg-[#D52121] hover:bg-[#B91C1C] text-white px-4 py-2 rounded-[8px] font-medium transition-colors text-lg"
+                className="bg-[#D52121] hover:bg-[#B91C1C] text-white px-4 py-2 rounded-[8px] font-medium transition-colors text-base sm:text-lg"
               >
                 Add List
               </button>
@@ -204,53 +205,65 @@ export default function ListsPage() {
             {lists.map((list: List) => (
               <div
                 key={list._id}
-                className="bg-[#FAFAFA] rounded-lg shadow-sm hover:shadow-md transition-shadow p-6 cursor-pointer max-w-[920px] h-[94px] flex items-center"
+                className="bg-[#FAFAFA] rounded-lg shadow-sm hover:shadow-md transition-shadow p-4 sm:p-6 cursor-pointer w-full max-w-[920px] min-h-[94px] flex items-center"
                 onClick={() => handleListClick(list._id)}
               >
-                <div className="flex items-center space-x-4 flex-1">
-                  {/* Circular Progress */}
-                  <div className="flex-shrink-0">
-                    <CircularProgress 
-                      completed={list.completedTaskCount || 0} 
-                      total={list.taskCount || 0}
-                      size={50}
-                      strokeWidth={3}
-                    />
-                  </div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 flex-1 w-full">
+                  {/* Circular Progress and List Info */}
+                  <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0 w-full sm:w-auto">
+                    <div className="flex-shrink-0">
+                      <CircularProgress 
+                        completed={list.completedTaskCount || 0} 
+                        total={list.taskCount || 0}
+                        size={40}
+                        strokeWidth={3}
+                      />
+                    </div>
 
-                  {/* List Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-gray-900 truncate mb-1">
-                      {list.name}
-                    </h3>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <span>
-                        {format(new Date(list.createdAt), 'MMM dd, yyyy • h:mm a')}
-                      </span>
-                      <span>•</span>
-                      <span>
-                        {list.taskCount === 0 
-                          ? '0 tasks added' 
-                          : `${list.taskCount} ${list.taskCount === 1 ? 'task' : 'tasks'} added`
-                        }
-                      </span>
+                    {/* List Info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate mb-1">
+                        {list.name}
+                      </h3>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-xs sm:text-sm text-gray-600 space-y-1 sm:space-y-0">
+                        <span className="truncate">
+                          {format(new Date(list.createdAt), 'MMM dd, yyyy • h:mm a')}
+                        </span>
+                        <span className="hidden sm:inline">•</span>
+                        <span>
+                          {list.taskCount === 0 
+                            ? '0 tasks added' 
+                            : `${list.taskCount} ${list.taskCount === 1 ? 'task' : 'tasks'} added`
+                          }
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center space-x-2 flex-shrink-0">
-                    <button
-                      onClick={(e) => handleDeleteList(list, e)}
-                      className="text-gray-400 hover:text-red-500 p-2 rounded transition-colors"
-                      title="Delete list"
-                    >
-                      <Image
-                        src="/dashboard/delete.svg"
-                        alt="Delete"
-                        width={20}
-                        height={20}
-                      />
-                    </button>
+                  {/* Shared User Avatars and Actions */}
+                  <div className="flex items-center justify-between sm:justify-end space-x-3 sm:space-x-4 w-full sm:w-auto">
+                    {/* Shared User Avatars */}
+                    {list.sharedWith && list.sharedWith.length > 0 && (
+                      <div className="flex-shrink-0">
+                        <SharedUserAvatars sharedWith={list.sharedWith} maxAvatars={2} size="sm" />
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center space-x-2 flex-shrink-0">
+                      <button
+                        onClick={(e) => handleDeleteList(list, e)}
+                        className="text-gray-400 hover:text-red-500 p-2 rounded transition-colors"
+                        title="Delete list"
+                      >
+                        <Image
+                          src="/dashboard/delete.svg"
+                          alt="Delete"
+                          width={18}
+                          height={18}
+                        />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -259,7 +272,7 @@ export default function ListsPage() {
             {/* Add New List Button */}
             <button
               onClick={() => setShowCreateListForm(true)}
-              className="w-full max-w-[920px] h-[40px] bg-[#FAFAFA] rounded-lg flex items-center justify-center text-gray-600 hover:text-[#D52121] transition-colors font-medium"
+              className="w-full max-w-[920px] h-[40px] bg-[#FAFAFA] rounded-lg flex items-center justify-center text-gray-600 hover:text-[#D52121] transition-colors font-medium text-sm sm:text-base"
             >
               + Add another List
             </button>

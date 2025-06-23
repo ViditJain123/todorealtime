@@ -6,6 +6,8 @@ export interface ISharedUser {
   userId: string;
   permission: 'Edit' | 'View';
   addedAt: Date;
+  username?: string;
+  fullName?: string;
 }
 
 export interface IList extends Document {
@@ -49,6 +51,14 @@ const SharedUserSchema = new Schema<ISharedUser>({
   addedAt: {
     type: Date,
     default: Date.now
+  },
+  username: {
+    type: String,
+    required: false
+  },
+  fullName: {
+    type: String,
+    required: false
   }
 });
 
