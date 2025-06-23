@@ -4,6 +4,7 @@ export interface List {
   createdAt: string;
   userId: string;
   taskCount: number;
+  completedTaskCount: number;
   sharedWith: string[];
 }
 

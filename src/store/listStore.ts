@@ -12,6 +12,7 @@ interface ListState {
   createList: (data: { name: string }) => Promise<void>;
   deleteList: (id: string) => Promise<void>;
   updateListTaskCount: (listId: string, increment: number) => void;
+  updateListCompletionCount: (listId: string, completedCount: number) => void;
   clearLists: () => void;
   setError: (error: string | null) => void;
 }
@@ -68,6 +69,16 @@ export const useListStore = create<ListState>((set) => ({
       lists: state.lists.map(list =>
         list._id === listId
           ? { ...list, taskCount: Math.max(0, list.taskCount + increment) }
+          : list
+      )
+    }));
+  },
+
+  updateListCompletionCount: (listId: string, completedCount: number) => {
+    set(state => ({
+      lists: state.lists.map(list =>
+        list._id === listId
+          ? { ...list, completedTaskCount: completedCount }
           : list
       )
     }));

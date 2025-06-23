@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import connectDB from '@/lib/mongodb';
-import { List } from '@/models';
+import { List, Todo } from '@/models';
 
 // GET - Fetch all lists for the authenticated user (owned and shared)
 export async function GET() {
@@ -22,7 +22,22 @@ export async function GET() {
       ]
     }).sort({ createdAt: -1 });
     
-    return NextResponse.json(lists);
+    // Get completion data for each list
+    const listsWithCompletion = await Promise.all(
+      lists.map(async (list) => {
+        const completedTaskCount = await Todo.countDocuments({
+          listId: list._id,
+          status: 'Completed'
+        });
+        
+        return {
+          ...list.toObject(),
+          completedTaskCount
+        };
+      })
+    );
+    
+    return NextResponse.json(listsWithCompletion);
   } catch (error) {
     console.error('Error fetching lists:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -54,7 +69,13 @@ export async function POST(request: NextRequest) {
     
     await newList.save();
     
-    return NextResponse.json(newList, { status: 201 });
+    // Return the list with completedTaskCount
+    const listWithCompletion = {
+      ...newList.toObject(),
+      completedTaskCount: 0
+    };
+    
+    return NextResponse.json(listWithCompletion, { status: 201 });
   } catch (error) {
     console.error('Error creating list:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
