@@ -5,8 +5,9 @@ export interface IList extends Document {
   _id: string;
   name: string;
   createdAt: Date;
-  userId: string; // Clerk user ID
+  userId: string; // Clerk user ID (owner)
   taskCount: number;
+  sharedWith: string[]; // Array of Clerk user IDs who have access to this list
 }
 
 export interface ITodo extends Document {
@@ -40,6 +41,11 @@ const ListSchema = new Schema<IList>({
   taskCount: {
     type: Number,
     default: 0
+  },
+  sharedWith: {
+    type: [String],
+    default: [],
+    index: true
   }
 });
 

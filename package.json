@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "node socket-server.js",
+    "dev:next": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -11,12 +12,18 @@
   "dependencies": {
     "@clerk/nextjs": "^6.22.0",
     "@types/mongoose": "^5.11.96",
+    "@types/socket.io-client": "^1.4.36",
+    "concurrently": "^9.2.0",
     "date-fns": "^4.1.0",
+    "dotenv": "^16.5.0",
     "mongodb": "^6.17.0",
     "mongoose": "^8.16.0",
     "next": "15.3.4",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "zustand": "^5.0.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

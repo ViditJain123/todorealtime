@@ -41,6 +41,21 @@ export const listAPI = {
       throw new Error('Failed to delete list');
     }
   },
+
+  // Share a list with another user
+  share: async (listId: string, targetEmail: string): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/share-list`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ listId, targetEmail }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to share list');
+    }
+  },
 };
 
 // Todo API functions

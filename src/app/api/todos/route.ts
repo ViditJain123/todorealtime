@@ -21,13 +21,19 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
     
-    // Verify the list belongs to the user
-    const list = await List.findOne({ _id: listId, userId });
+    // Verify the user has access to the list (owner or shared with)
+    const list = await List.findOne({ 
+      _id: listId, 
+      $or: [
+        { userId },
+        { sharedWith: userId }
+      ]
+    });
     if (!list) {
-      return NextResponse.json({ error: 'List not found' }, { status: 404 });
+      return NextResponse.json({ error: 'List not found or access denied' }, { status: 404 });
     }
     
-    const todos = await Todo.find({ listId, userId }).sort({ createdAt: -1 });
+    const todos = await Todo.find({ listId }).sort({ createdAt: -1 });
     
     return NextResponse.json(todos);
   } catch (error) {
@@ -57,10 +63,16 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     
-    // Verify the list belongs to the user
-    const list = await List.findOne({ _id: listId, userId });
+    // Verify the user has access to the list (owner or shared with)
+    const list = await List.findOne({ 
+      _id: listId, 
+      $or: [
+        { userId },
+        { sharedWith: userId }
+      ]
+    });
     if (!list) {
-      return NextResponse.json({ error: 'List not found' }, { status: 404 });
+      return NextResponse.json({ error: 'List not found or access denied' }, { status: 404 });
     }
     
     const newTodo = new Todo({

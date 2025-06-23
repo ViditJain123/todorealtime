@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Todo, List } from '@/types';
-import { todoAPI, listAPI } from '@/lib/api';
+import { useListStore, useTodoStore, useUIStore } from '@/store';
+import { useSocket } from '@/hooks/useSocket';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function TodosPage() {
@@ -13,37 +14,68 @@ export default function TodosPage() {
   const params = useParams();
   const listId = params.listId as string;
 
-  const [list, setList] = useState<List | null>(null);
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingTodo, setEditingTodo] = useState<string | null>(null);
   const [editTaskName, setEditTaskName] = useState('');
 
+  // Zustand stores
+  const { lists, updateListTaskCount } = useListStore();
+  const { 
+    todos, 
+    loading, 
+    fetchTodos, 
+    createTodo, 
+    updateTodo, 
+    deleteTodo,
+    toggleComplete,
+    clearTodos,
+    addTodoLocal,
+    updateTodoLocal,
+    deleteTodoLocal
+  } = useTodoStore();
+  
+  const { 
+    showCreateTodoForm, 
+    creatingTodo, 
+    editingTodo,
+    setShowCreateTodoForm, 
+    setCreatingTodo,
+    setEditingTodo,
+    resetUIState 
+  } = useUIStore();
+
+  // Socket for real-time functionality
+  const {
+    joinList,
+    leaveList,
+    emitTodoAdded,
+    emitTodoUpdated,
+    emitTodoDeleted,
+    onTodoAdded,
+    onTodoUpdated,
+    onTodoDeleted,
+    isConnected
+  } = useSocket();
+
+  // Get current list from lists store
+  const list = lists.find((l: List) => l._id === listId) || null;
+
   const fetchData = useCallback(async () => {
+    if (!listId) return;
+    
     try {
-      const [listsData, todosData] = await Promise.all([
-        listAPI.getAll(),
-        todoAPI.getByListId(listId)
-      ]);
+      await fetchTodos(listId);
       
-      const currentList = listsData.find(l => l._id === listId);
-      if (!currentList) {
+      // If we don't have this list in our store, redirect to dashboard
+      const currentList = lists.find((l: List) => l._id === listId);
+      if (lists.length > 0 && !currentList) {
         router.push('/dashboard');
         return;
       }
-      
-      setList(currentList);
-      setTodos(todosData);
     } catch (error) {
       console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
     }
-  }, [listId, router]);
+  }, [listId, fetchTodos, lists, router]);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -53,59 +85,94 @@ export default function TodosPage() {
 
     if (isSignedIn && listId) {
       fetchData();
+      
+      // Join the socket room for this list
+      joinList(listId);
+      
+      // Set up socket event listeners
+      onTodoAdded((todo) => {
+        addTodoLocal(todo);
+        updateListTaskCount(listId, 1);
+      });
+      
+      onTodoUpdated((todo) => {
+        updateTodoLocal(todo);
+      });
+      
+      onTodoDeleted(({ todoId }) => {
+        deleteTodoLocal(todoId);
+        updateListTaskCount(listId, -1);
+      });
     }
-  }, [isSignedIn, isLoaded, listId, router, fetchData]);
+
+    // Cleanup function
+    return () => {
+      if (listId) {
+        leaveList(listId);
+      }
+    };
+  }, [isSignedIn, isLoaded, listId, router, fetchData, joinList, leaveList, onTodoAdded, onTodoUpdated, onTodoDeleted, addTodoLocal, updateTodoLocal, deleteTodoLocal, updateListTaskCount]);
+
+  useEffect(() => {
+    // Clear todos when user signs out
+    if (isLoaded && !isSignedIn) {
+      clearTodos();
+      resetUIState();
+    }
+  }, [isSignedIn, isLoaded, clearTodos, resetUIState]);
 
   const handleCreateTodo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskName.trim()) return;
 
-    setCreating(true);
+    setCreatingTodo(true);
     try {
-      const newTodo = await todoAPI.create(listId, {
+      const newTodo = await createTodo(listId, {
         taskName: newTaskName.trim(),
         priority: newTaskPriority,
       });
-      setTodos([newTodo, ...todos]);
       setNewTaskName('');
       setNewTaskPriority('Medium');
-      setShowCreateForm(false);
+      setShowCreateTodoForm(false);
       
-      // Update list in state
-      if (list) {
-        setList({ ...list, taskCount: list.taskCount + 1 });
-      }
+      // Update list task count
+      updateListTaskCount(listId, 1);
+      
+      // Emit socket event
+      emitTodoAdded(newTodo);
     } catch (error) {
       console.error('Error creating todo:', error);
     } finally {
-      setCreating(false);
+      setCreatingTodo(false);
     }
   };
 
   const handleToggleComplete = async (todo: Todo) => {
-    const newType = !todo.type;
-    const newStatus = newType ? 'Completed' : 'ToDo';
-    
     try {
-      const updatedTodo = await todoAPI.update(listId, todo._id, {
-        type: newType,
-        status: newStatus
-      });
+      await toggleComplete(listId, todo);
       
-      setTodos(todos.map(t => t._id === todo._id ? updatedTodo : t));
+      // Get the updated todo and emit socket event
+      const updatedTodo: Todo = { 
+        ...todo, 
+        type: !todo.type, 
+        status: (!todo.type ? 'Completed' : 'ToDo') as 'ToDo' | 'InProgress' | 'Completed'
+      };
+      emitTodoUpdated(updatedTodo);
     } catch (error) {
-      console.error('Error updating todo:', error);
+      console.error('Error toggling completion:', error);
     }
   };
 
   const handleStatusChange = async (todo: Todo, newStatus: 'ToDo' | 'InProgress' | 'Completed') => {
     try {
-      const updatedTodo = await todoAPI.update(listId, todo._id, {
+      await updateTodo(listId, todo._id, {
         status: newStatus,
         type: newStatus === 'Completed'
       });
       
-      setTodos(todos.map(t => t._id === todo._id ? updatedTodo : t));
+      // Emit socket event
+      const updatedTodo: Todo = { ...todo, status: newStatus, type: newStatus === 'Completed' };
+      emitTodoUpdated(updatedTodo);
     } catch (error) {
       console.error('Error updating todo status:', error);
     }
@@ -113,11 +180,13 @@ export default function TodosPage() {
 
   const handlePriorityChange = async (todo: Todo, newPriority: 'High' | 'Medium' | 'Low') => {
     try {
-      const updatedTodo = await todoAPI.update(listId, todo._id, {
+      await updateTodo(listId, todo._id, {
         priority: newPriority
       });
       
-      setTodos(todos.map(t => t._id === todo._id ? updatedTodo : t));
+      // Emit socket event
+      const updatedTodo: Todo = { ...todo, priority: newPriority };
+      emitTodoUpdated(updatedTodo);
     } catch (error) {
       console.error('Error updating todo priority:', error);
     }
@@ -127,11 +196,17 @@ export default function TodosPage() {
     if (!newTaskName.trim()) return;
 
     try {
-      const updatedTodo = await todoAPI.update(listId, todoId, {
+      await updateTodo(listId, todoId, {
         taskName: newTaskName.trim()
       });
       
-      setTodos(todos.map(t => t._id === todoId ? updatedTodo : t));
+      // Find the todo and emit socket event
+      const todo = todos.find(t => t._id === todoId);
+      if (todo) {
+        const updatedTodo: Todo = { ...todo, taskName: newTaskName.trim() };
+        emitTodoUpdated(updatedTodo);
+      }
+      
       setEditingTodo(null);
       setEditTaskName('');
     } catch (error) {
@@ -145,13 +220,13 @@ export default function TodosPage() {
     }
 
     try {
-      await todoAPI.delete(listId, todoId);
-      setTodos(todos.filter(t => t._id !== todoId));
+      await deleteTodo(listId, todoId);
       
-      // Update list in state
-      if (list) {
-        setList({ ...list, taskCount: list.taskCount - 1 });
-      }
+      // Update list task count
+      updateListTaskCount(listId, -1);
+      
+      // Emit socket event
+      emitTodoDeleted(todoId, listId);
     } catch (error) {
       console.error('Error deleting todo:', error);
     }
@@ -227,7 +302,7 @@ export default function TodosPage() {
             </p>
           </div>
           <button
-            onClick={() => setShowCreateForm(true)}
+            onClick={() => setShowCreateTodoForm(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
             Add New Task
@@ -236,7 +311,7 @@ export default function TodosPage() {
       </div>
 
       {/* Create Todo Form */}
-      {showCreateForm && (
+      {showCreateTodoForm && (
         <div className="mb-6 bg-white rounded-lg shadow p-6">
           <form onSubmit={handleCreateTodo}>
             <div className="space-y-4">
@@ -260,15 +335,15 @@ export default function TodosPage() {
                 </select>
                 <button
                   type="submit"
-                  disabled={creating || !newTaskName.trim()}
+                  disabled={creatingTodo || !newTaskName.trim()}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                 >
-                  {creating ? 'Creating...' : 'Create Task'}
+                  {creatingTodo ? 'Creating...' : 'Create Task'}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setShowCreateForm(false);
+                    setShowCreateTodoForm(false);
                     setNewTaskName('');
                     setNewTaskPriority('Medium');
                   }}
@@ -294,7 +369,7 @@ export default function TodosPage() {
             <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks yet</h3>
             <p className="text-gray-600 mb-6">Add your first task to get started with this list.</p>
             <button
-              onClick={() => setShowCreateForm(true)}
+              onClick={() => setShowCreateTodoForm(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               Add Your First Task
@@ -303,7 +378,7 @@ export default function TodosPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {todos.map((todo) => (
+          {todos.map((todo: Todo) => (
             <div
               key={todo._id}
               className={`bg-white rounded-lg shadow-md p-6 ${

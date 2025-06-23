@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import connectDB from '@/lib/mongodb';
 import { List } from '@/models';
 
-// GET - Fetch all lists for the authenticated user
+// GET - Fetch all lists for the authenticated user (owned and shared)
 export async function GET() {
   try {
     const { userId } = await auth();
@@ -14,7 +14,13 @@ export async function GET() {
 
     await connectDB();
     
-    const lists = await List.find({ userId }).sort({ createdAt: -1 });
+    // Find lists where user is either the owner or in the sharedWith array
+    const lists = await List.find({
+      $or: [
+        { userId },
+        { sharedWith: userId }
+      ]
+    }).sort({ createdAt: -1 });
     
     return NextResponse.json(lists);
   } catch (error) {

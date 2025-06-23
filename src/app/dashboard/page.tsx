@@ -4,17 +4,35 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { List } from '@/types';
+import { useListStore, useUIStore } from '@/store';
 import { listAPI } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
+import ShareModal from '@/components/ShareModal';
 
 export default function ListsPage() {
   const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
-  const [lists, setLists] = useState<List[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
   const [newListName, setNewListName] = useState('');
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [selectedList, setSelectedList] = useState<List | null>(null);
+  
+  // Zustand stores
+  const { 
+    lists, 
+    loading, 
+    fetchLists, 
+    createList, 
+    deleteList,
+    clearLists 
+  } = useListStore();
+  
+  const { 
+    showCreateListForm, 
+    creatingList, 
+    setShowCreateListForm, 
+    setCreatingList,
+    resetUIState 
+  } = useUIStore();
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -25,33 +43,29 @@ export default function ListsPage() {
     if (isSignedIn) {
       fetchLists();
     }
-  }, [isSignedIn, isLoaded, router]);
+  }, [isSignedIn, isLoaded, router, fetchLists]);
 
-  const fetchLists = async () => {
-    try {
-      const fetchedLists = await listAPI.getAll();
-      setLists(fetchedLists);
-    } catch (error) {
-      console.error('Error fetching lists:', error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    // Clear lists when user signs out
+    if (isLoaded && !isSignedIn) {
+      clearLists();
+      resetUIState();
     }
-  };
+  }, [isSignedIn, isLoaded, clearLists, resetUIState]);
 
   const handleCreateList = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newListName.trim()) return;
 
-    setCreating(true);
+    setCreatingList(true);
     try {
-      const newList = await listAPI.create({ name: newListName.trim() });
-      setLists([newList, ...lists]);
+      await createList({ name: newListName.trim() });
       setNewListName('');
-      setShowCreateForm(false);
+      setShowCreateListForm(false);
     } catch (error) {
       console.error('Error creating list:', error);
     } finally {
-      setCreating(false);
+      setCreatingList(false);
     }
   };
 
@@ -61,8 +75,7 @@ export default function ListsPage() {
     }
 
     try {
-      await listAPI.delete(id);
-      setLists(lists.filter(list => list._id !== id));
+      await deleteList(id);
     } catch (error) {
       console.error('Error deleting list:', error);
     }
@@ -70,6 +83,22 @@ export default function ListsPage() {
 
   const handleListClick = (listId: string) => {
     router.push(`/lists/${listId}`);
+  };
+
+  const handleShareClick = (list: List, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedList(list);
+    setShareModalOpen(true);
+  };
+
+  const handleShareList = async (email: string) => {
+    if (!selectedList) return;
+    await listAPI.share(selectedList._id, email);
+  };
+
+  const handleCloseShareModal = () => {
+    setShareModalOpen(false);
+    setSelectedList(null);
   };
 
   if (!isLoaded || loading) {
@@ -98,7 +127,7 @@ export default function ListsPage() {
             </p>
           </div>
           <button
-            onClick={() => setShowCreateForm(true)}
+            onClick={() => setShowCreateListForm(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
             Create New List
@@ -107,7 +136,7 @@ export default function ListsPage() {
       </div>
 
       {/* Create List Form */}
-      {showCreateForm && (
+      {showCreateListForm && (
         <div className="mb-6 bg-white rounded-lg shadow p-6">
           <form onSubmit={handleCreateList}>
             <div className="flex items-center space-x-4">
@@ -121,15 +150,15 @@ export default function ListsPage() {
               />
               <button
                 type="submit"
-                disabled={creating || !newListName.trim()}
+                disabled={creatingList || !newListName.trim()}
                 className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
-                {creating ? 'Creating...' : 'Create'}
+                {creatingList ? 'Creating...' : 'Create'}
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setShowCreateForm(false);
+                  setShowCreateListForm(false);
                   setNewListName('');
                 }}
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
@@ -153,7 +182,7 @@ export default function ListsPage() {
             <h3 className="text-lg font-medium text-gray-900 mb-2">No lists yet</h3>
             <p className="text-gray-600 mb-6">Get started by creating your first list to organize your tasks.</p>
             <button
-              onClick={() => setShowCreateForm(true)}
+              onClick={() => setShowCreateListForm(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               Create Your First List
@@ -162,7 +191,7 @@ export default function ListsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {lists.map((list) => (
+          {lists.map((list: List) => (
             <div
               key={list._id}
               className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 cursor-pointer"
@@ -172,18 +201,29 @@ export default function ListsPage() {
                 <h3 className="text-lg font-semibold text-gray-900 truncate pr-2">
                   {list.name}
                 </h3>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteList(list._id);
-                  }}
-                  className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"
-                  title="Delete list"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
+                <div className="flex space-x-1">
+                  <button
+                    onClick={(e) => handleShareClick(list, e)}
+                    className="text-blue-500 hover:text-blue-700 p-1 rounded transition-colors"
+                    title="Share list"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteList(list._id);
+                    }}
+                    className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"
+                    title="Delete list"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               
               <div className="flex items-center justify-between text-sm text-gray-600">
@@ -198,8 +238,18 @@ export default function ListsPage() {
                 </svg>
               </div>
             </div>
-          ))}
+          )          )}
         </div>
+      )}
+
+      {/* Share Modal */}
+      {selectedList && (
+        <ShareModal
+          list={selectedList}
+          isOpen={shareModalOpen}
+          onClose={handleCloseShareModal}
+          onShare={handleShareList}
+        />
       )}
     </div>
   );

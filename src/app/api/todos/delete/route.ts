@@ -24,14 +24,26 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     
-    // Verify the todo belongs to the user and list
-    const todo = await Todo.findOne({ _id: todoId, listId, userId });
+    // First verify the user has access to the list
+    const list = await List.findOne({ 
+      _id: listId, 
+      $or: [
+        { userId },
+        { sharedWith: userId }
+      ]
+    });
+    if (!list) {
+      return NextResponse.json({ error: 'List not found or access denied' }, { status: 404 });
+    }
+    
+    // Verify the todo exists in the list
+    const todo = await Todo.findOne({ _id: todoId, listId });
     if (!todo) {
       return NextResponse.json({ error: 'Todo not found' }, { status: 404 });
     }
     
     // Delete the todo
-    await Todo.deleteOne({ _id: todoId, listId, userId });
+    await Todo.deleteOne({ _id: todoId, listId });
     
     // Update list task count
     await List.findByIdAndUpdate(listId, { 

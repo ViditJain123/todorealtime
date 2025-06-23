@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import connectDB from '@/lib/mongodb';
-import { Todo } from '@/models';
+import { Todo, List } from '@/models';
 
 // POST - Update a todo
 export async function POST(request: NextRequest) {
@@ -24,8 +24,20 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     
-    // Verify the todo belongs to the user and list
-    const todo = await Todo.findOne({ _id: todoId, listId, userId });
+    // First verify the user has access to the list
+    const list = await List.findOne({ 
+      _id: listId, 
+      $or: [
+        { userId },
+        { sharedWith: userId }
+      ]
+    });
+    if (!list) {
+      return NextResponse.json({ error: 'List not found or access denied' }, { status: 404 });
+    }
+    
+    // Verify the todo exists in the list
+    const todo = await Todo.findOne({ _id: todoId, listId });
     if (!todo) {
       return NextResponse.json({ error: 'Todo not found' }, { status: 404 });
     }

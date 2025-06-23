@@ -4,6 +4,7 @@ export interface List {
   createdAt: string;
   userId: string;
   taskCount: number;
+  sharedWith: string[];
 }
 
 export interface Todo {
@@ -32,4 +33,16 @@ export interface UpdateTodoRequest {
   taskName?: string;
   status?: 'ToDo' | 'InProgress' | 'Completed';
   priority?: 'High' | 'Medium' | 'Low';
+}
+
+export interface ShareListRequest {
+  listId: string;
+  targetEmail: string;
+}
+
+export interface SocketEvents {
+  'todo-added': Todo;
+  'todo-updated': Todo;
+  'todo-deleted': { todoId: string; listId: string };
+  'list-updated': List;
 }
